@@ -1,9 +1,16 @@
 import pygame
-import pygame_widgets
 import pytmx
 import os
 import sys
 
+MAPS_DIR = 'data/maps'
+HERO_DIR = 'data/hobbit'
+FPS = 60
+SIZE = WIDTH, HEIGHT = 960, 480
+
+pygame.init()
+pygame.display.set_caption('CaveFighter')
+screen = pygame.display.set_mode(SIZE)
 
 class Menu(pygame.sprite.Sprite):
     def __init__(self):
@@ -47,7 +54,7 @@ class Menu(pygame.sprite.Sprite):
             self.tiles.draw(screen)
             self.buttons[self.cur_frame].draw(screen)
             pygame.display.update()
-            clock.tick(15)
+            game.clock.tick(15)
 
     def play(self):
         self.running = False
@@ -59,6 +66,8 @@ class Menu(pygame.sprite.Sprite):
 
     def restart(self):
         self.running = False
+        game.all_sprites.empty()
+        game.setup()
 
     def exit(self):
         pygame.quit()
@@ -69,8 +78,9 @@ class Menu(pygame.sprite.Sprite):
 
     def death(self):
         self.running = True
-        self.run()
         self.cur_frame = 1
+        self.run()
+        
 
 
 def load_image(folder_name, name, colorkey=None) -> pygame.Surface:
@@ -135,40 +145,40 @@ class Map():
 
                 if layer.id == 2 and self.get_tile_id((x, y), 1) in [20, 21]:
                     Block(x * self.tile_size, y *
-                          self.tile_size, image, stairs)
+                          self.tile_size, image, game.stairs)
 
                 elif self.map.layers[1] == layer:
                     Block(x * self.tile_size, y *
-                          self.tile_size, image, blocks)
+                          self.tile_size, image, game.blocks)
                     Wall(x * self.tile_size, y * self.tile_size, 0)
                     Wall(x * self.tile_size, y * self.tile_size, 1)
                     Floor(x * self.tile_size, y * self.tile_size)
 
                 elif self.map.layers[0] == layer:
                     Block(x * self.tile_size, y *
-                          self.tile_size, image, background)
+                          self.tile_size, image, game.background)
 
                 elif self.map.layers[2] == layer:
                     Block(x * self.tile_size, y *
-                          self.tile_size, image, falls1)
+                          self.tile_size, image, game.falls1)
 
                 elif self.map.layers[3] == layer:
                     Block(x * self.tile_size, y *
-                          self.tile_size, image, falls2)
+                          self.tile_size, image, game.falls2)
                 else:
-                    Block(x * self.tile_size, y * self.tile_size, image, decor)
+                    Block(x * self.tile_size, y * self.tile_size, image, game.decor)
 
     # отрисовка блоков и создание некоторых анимаций(водопады)
     def draw(self, screen):
-        background.draw(screen)
-        blocks.draw(screen)
-        stairs.draw(screen)
+        game.background.draw(screen)
+        game.blocks.draw(screen)
+        game.stairs.draw(screen)
 
     def draw_falls(self, screen):
         if self.water:
-            falls1.draw(screen)
+            game.falls1.draw(screen)
         else:
-            falls2.draw(screen)
+            game.falls2.draw(screen)
         self.water = 1 if self.water == 0 else 0
 
     def get_tile_id(self, position, layer):
@@ -184,7 +194,7 @@ class Map():
 class Block(pygame.sprite.Sprite):
     def __init__(self, x, y, image: pygame.Surface, group, flag=True):
         if flag:
-            super().__init__(all_sprites, group)
+            super().__init__(game.all_sprites, group)
         else:
             super().__init__(group)
         self.image = image
@@ -201,8 +211,8 @@ class Wall(pygame.sprite.Sprite):
     def __init__(self, x, y, orientation):
         self.orientation = orientation
         self.vector_y = 1
-        group = left_walls if self.orientation == 0 else right_walls
-        super().__init__(all_sprites, group)
+        group = game.left_walls if self.orientation == 0 else game.right_walls
+        super().__init__(game.all_sprites, group)
         self.height = 20
         self.weigth = 1
         self.rect = pygame.Rect(x + 1 + 30 * orientation,
@@ -213,7 +223,7 @@ class Wall(pygame.sprite.Sprite):
 
 class Floor(pygame.sprite.Sprite):
     def __init__(self, x, y):
-        super().__init__(all_sprites, floors)
+        super().__init__(game.all_sprites, game.floors)
         self.rect = pygame.Rect(x + 1, y + 1, 30, 1)
         self.image = pygame.Surface((30, 1), masks=pygame.Color(0, 0, 0))
 
@@ -222,7 +232,7 @@ class Floor(pygame.sprite.Sprite):
 
 class Creature(pygame.sprite.Sprite):
     def __init__(self, coords, group):
-        super().__init__(all_sprites, group)
+        super().__init__(game.all_sprites, group)
         self.health = 10
         self.max_hp = 10
         self.group = group
@@ -235,7 +245,7 @@ class Creature(pygame.sprite.Sprite):
 
         self.falling = False
         #self.jumping_frames = [40 - (8 * i**2) / 2 for i in range(1, 8)]
-        self.jumping_frames = [-36.0, -24.0, -8.0, 4, 16, 23]
+        self.jumping_frames = [-8, -8, -8, -8, -8, -8, -8, -8, 8, 8, 8, 8, 8, 8, 8, 8]
 
         self.stay()
         self.image = self.frames[self.cur_frame]
@@ -263,15 +273,15 @@ class Creature(pygame.sprite.Sprite):
         if self.jumping:
             self.rect.y += self.jumping_frames[self.jumping_frame]
             self.jumping_frame += 1
-            if self.jumping_frame >= 6:
+            if self.jumping_frame >= 16:
                 self.jumping = False
                 self.jumping_frame = 0
 
         if self.cur_func == 8:
             if self.cur_frame == 11:
                 self.group.remove(self)
-                if self.group == heroes:
-                    menu.death()
+                if self.group == game.heroes:
+                    game.menu.death()
                 return
 
         if self.cur_func == 7:
@@ -288,8 +298,8 @@ class Creature(pygame.sprite.Sprite):
                        12, self.rect.y + 12), self.vector, self.group)
 
         if self.cur_func == 6:
-            if pygame.sprite.spritecollideany(self, stairs):
-                for stair in stairs:
+            if pygame.sprite.spritecollideany(self, game.stairs):
+                for stair in game.stairs:
                     if stair.rect.colliderect(pygame.Rect(self.rect.x + 16, self.rect.y, 1, 33)):
                         if (not self.check_stay() and self.vector_y == 1) or self.vector_y == -1:
                             self.rect.y += 10 * self.vector_y
@@ -298,7 +308,7 @@ class Creature(pygame.sprite.Sprite):
                     self.stay()
 
         if self.cur_func == 2:
-            group = left_walls if self.vector == 1 else right_walls
+            group = game.left_walls if self.vector == 1 else game.right_walls
             if not pygame.sprite.spritecollideany(self, group):
                 self.rect.x += 10 * self.vector 
             else:
@@ -330,8 +340,8 @@ class Creature(pygame.sprite.Sprite):
 
     def hit(self, damage):
         self.health -= damage
-        if self.group == heroes:
-            interface.change_hp(damage)
+        if self.group == game.heroes:
+            game.interface.change_hp(-damage)
 
         print(self.health)
         self.cur_func = 7
@@ -342,32 +352,32 @@ class Creature(pygame.sprite.Sprite):
         self.cut_sheet(load_char('Hobbit - death', 12))
 
     def check_stay(self):
-        return pygame.sprite.spritecollideany(self, floors)
+        return pygame.sprite.spritecollideany(self, game.floors)
 
 
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, coords, vector, group):
-        super().__init__(all_sprites, balls)
+        super().__init__(game.all_sprites, game.balls)
         self.image = load_char('bullet - ', 1)
         self.rect = self.image.get_rect()
         self.rect.x, self.rect.y = coords
         self.cur_distance = 0
         self.vector = vector
-        if group == enemies:
-            self.group = heroes
+        if group == game.enemies:
+            self.group = game.heroes
         else:
-            self.group = enemies
+            self.group = game.enemies
 
     def update(self):
         self.rect.x += self.vector * 15
         self.cur_distance += 15
         char = pygame.sprite.spritecollideany(self, self.group)
         
-        if self.cur_distance // 32 > 8 or pygame.sprite.spritecollideany(self, blocks):
-            balls.remove(self)
+        if self.cur_distance // 32 > 8 or pygame.sprite.spritecollideany(self, game.blocks):
+            game.balls.remove(self)
         if char:
             char.hit(11)
-            balls.remove(self)
+            game.balls.remove(self)
 
 
 class Interface(pygame.sprite.Sprite):
@@ -386,14 +396,13 @@ class Interface(pygame.sprite.Sprite):
             elif self.cur_hp - count >= 1:
                 i.change(1)
                 count += 1
-                print(1)
             else:
                 i.change(0)
 
 
 class Health(pygame.sprite.Sprite):
     def __init__(self, hp, coord):
-        super().__init__(hearts)
+        super().__init__(game.hearts)
         self.hp = hp
         self.frames = load_image(
             'data/hearts/animated/border', 'heart_animated_2')
@@ -418,7 +427,7 @@ class Health(pygame.sprite.Sprite):
 
 class Button(pygame.sprite.Sprite):
     def __init__(self, x, y, func, name):
-        super().__init__(buttons)
+        super().__init__(game.buttons)
         global menu
         self.func = func
         self.image1 = pygame.transform.scale(
@@ -449,105 +458,104 @@ class Camera:
         self.dx = -(target.rect.x + target.rect.w // 2 - 32 // 2) + 200
 
 
-pygame.init()
-pygame.display.set_caption('CaveFighter')
-all_sprites = pygame.sprite.Group()
-# units
-heroes = pygame.sprite.Group()
-enemies = pygame.sprite.Group()
-balls = pygame.sprite.Group()
-# map
-blocks = pygame.sprite.Group()
-background = pygame.sprite.Group()
-left_walls = pygame.sprite.Group()
-right_walls = pygame.sprite.Group()
-floors = pygame.sprite.Group()
-decor = pygame.sprite.Group()
-stairs = pygame.sprite.Group()
 
-# falls
-falls1 = pygame.sprite.Group()
-falls2 = pygame.sprite.Group()
+class Game():
+    def __init__(self):
+        self.maps = [('second.tmx', (32 * 13, 7 * 32)), ]
+        self.map = Map(*self.maps[0])
 
-# Interface
-hearts = pygame.sprite.Group()
-buttons = pygame.sprite.Group()
+    def setup(self):
+        self.all_sprites = pygame.sprite.Group()
+        # units
+        self.heroes = pygame.sprite.Group()
+        self.enemies = pygame.sprite.Group()
+        self.balls = pygame.sprite.Group()
+        # map
+        self.blocks = pygame.sprite.Group()
+        self.background = pygame.sprite.Group()
+        self.left_walls = pygame.sprite.Group()
+        self.right_walls = pygame.sprite.Group()
+        self.floors = pygame.sprite.Group()
+        self.decor = pygame.sprite.Group()
+        self.stairs = pygame.sprite.Group()
 
-# CONSTS
-MAPS_DIR = 'data/maps'
-HERO_DIR = 'data/hobbit'
-FPS = 60
-SIZE = WIDTH, HEIGHT = 960, 480
+        # falls
+        self.falls1 = pygame.sprite.Group()
+        self.falls2 = pygame.sprite.Group()
 
-# Custom Events
-play = pygame.USEREVENT + 1
-pause = pygame.USEREVENT + 2
-options = pygame.USEREVENT + 3
+        # Interface
+        self.hearts = pygame.sprite.Group()
+        self.buttons = pygame.sprite.Group()
 
-running = True
-clock = pygame.time.Clock()
-screen = pygame.display.set_mode(SIZE)
+        # CONSTS
 
-maps = [('second.tmx', (32 * 13, 7 * 32)), ]
-map = Map(*maps[0])
+        # Custom Events
+        self.play = pygame.USEREVENT + 1
+        self.pause = pygame.USEREVENT + 2
+        self.options = pygame.USEREVENT + 3
 
-hero = Creature(map.start_pos, heroes)
-enemy = Creature((11 * 32, 7 * 32), enemies)
-camera = Camera()
-menu = Menu()
+        self.running = True
+        self.clock = pygame.time.Clock()
+
+        self.hero = Creature(self.map.start_pos, self.heroes)
+        self.enemy = Creature((11 * 32, 7 * 32), self.enemies)
+        self.camera = Camera()
+        self.menu = Menu()
+        self.menu.run()
+        self.interface = Interface(self.hero)
+        self.map.render()
+    
+    def run(self):
+        while self.running:
+            screen.fill('#000000')
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                # элементы движения
+                if event.type == pygame.KEYDOWN and self.hero.cur_func != 8:
+                    if event.key == pygame.K_d:
+                        self.hero.run()
+                        self.hero.vector = 1
+                    if event.key == pygame.K_a:
+                        self.hero.run()
+                        self.hero.vector = -1
+                    if event.key == pygame.K_f:
+                        self.hero.attack()
+                    if event.key == pygame.K_w:
+                        self.hero.claimbing(-1)
+                    if event.key == pygame.K_s:
+                        self.hero.claimbing(1)
+                    if event.key == pygame.K_SPACE or pygame.K_SPACE  and pygame.key.get_mods() and pygame.K_d | pygame.K_a:
+                        self.hero.jump()
+                    if event.key == pygame.K_ESCAPE:
+                        self.menu.pause()
+                if (event.type == pygame.KEYUP and not self.hero.cur_func in [4, 5, 8]):
+                    self.hero.stay()
+
+            self.camera.update(self.hero)
+            for sprite in self.all_sprites:
+                self.camera.apply(sprite)
+
+            self.map.draw(screen)
+            self.decor.draw(screen)
+
+            self.heroes.update()
+            self.enemies.update()
+            self.balls.update()
+            self.balls.draw(screen)
+
+            self.enemies.draw(screen)
+            self.heroes.draw(screen)
+            self.map.draw_falls(screen)
+
+            self.hearts.draw(screen)
+            self.clock.tick(20)
+            pygame.display.flip()
+        pygame.quit()
 
 
-menu.run()
-interface = Interface(hero)
+if __name__=="__main__":
+    game = Game()
+    game.setup()
+    game.run()
 
-map.render()
-
-while running:
-    screen.fill('#000000')
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        # элементы движения
-        if event.type == pygame.KEYDOWN and hero.cur_func != 8:
-            if event.key == pygame.K_d:
-                hero.run()
-                hero.vector = 1
-            if event.key == pygame.K_a:
-                hero.run()
-                hero.vector = -1
-            if event.key == pygame.K_f:
-                hero.attack()
-            if event.key == pygame.K_w:
-                hero.claimbing(-1)
-            if event.key == pygame.K_s:
-                hero.claimbing(1)
-            if event.key == pygame.K_SPACE:
-                hero.jump()
-            if event.key == pygame.K_ESCAPE:
-                menu.pause()
-            enemy.attack()
-        if (event.type == pygame.KEYUP and not hero.cur_func in [4, 5, 8]):
-            hero.stay()
-
-    camera.update(hero)
-    for sprite in all_sprites:
-        camera.apply(sprite)
-
-    map.draw(screen)
-    decor.draw(screen)
-
-    heroes.update()
-    enemies.update()
-    balls.update()
-    balls.draw(screen)
-
-    enemies.draw(screen)
-    heroes.draw(screen)
-    map.draw_falls(screen)
-
-    hearts.draw(screen)
-    floors.draw(screen)
-    left_walls.draw(screen)
-    clock.tick(10)
-    pygame.display.flip()
-pygame.quit()
