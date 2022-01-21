@@ -1,3 +1,5 @@
+import re
+from tokenize import group
 import pygame
 import pytmx
 import os
@@ -12,6 +14,7 @@ pygame.init()
 pygame.display.set_caption('CaveFighter')
 screen = pygame.display.set_mode(SIZE)
 
+
 class Menu(pygame.sprite.Sprite):
     def __init__(self):
         # 960 480
@@ -24,8 +27,8 @@ class Menu(pygame.sprite.Sprite):
             380, 200, self.options, 'options'), Button(380, 320, self.exit, 'exit')])
         self.buttons[1].add([Button(380, 80, self.restart, 'restart'), Button(
             380, 200, self.options, 'options'), Button(380, 320, self.exit, 'exit')])
-        self.buttons[2].add([Button(380, 130, self.restart, 'play'), Button(
-            380, 250, self.options, 'options'), Button(380, 370, self.options, 'options')])
+        self.buttons[2].add([Button(380, 80, self.restart, 'restart'), Button(380, 170, self.next, 'next'), Button(
+            380, 260, self.options, 'options'), Button(380, 350, self.exit, 'exit')])
         self.render()
 
     def render(self):
@@ -74,13 +77,23 @@ class Menu(pygame.sprite.Sprite):
         quit()
 
     def options(self):
-        self.cur_frame = 2
+        self.cur_frame = 3
 
     def death(self):
         self.running = True
         self.cur_frame = 1
         self.run()
-        
+
+    def finish(self):
+        self.cur_frame = 2
+        self.running = True
+        self.run()
+
+    def next(self):
+        self.running = False
+        game.all_sprites.empty()
+        game.cur_map += 1
+        game.setup()
 
 
 def load_image(folder_name, name, colorkey=None) -> pygame.Surface:
@@ -130,7 +143,7 @@ class Map():
         self.height = self.map.height
         self.width = self.map.width
         self.tile_size = 32
-        self.finish_title = finish_tile
+        self.finish_tile = finish_tile
         self.screen = screen
         self.flag = True
         self.water = 1
@@ -155,8 +168,12 @@ class Map():
                     Floor(x * self.tile_size, y * self.tile_size)
 
                 elif self.map.layers[0] == layer:
+                    if (x, y) == self.finish_tile:
+                        bgroup = game.finish_tile
+                    else:
+                        bgroup = game.background
                     Block(x * self.tile_size, y *
-                          self.tile_size, image, game.background)
+                          self.tile_size, image, bgroup)
 
                 elif self.map.layers[2] == layer:
                     Block(x * self.tile_size, y *
@@ -166,13 +183,15 @@ class Map():
                     Block(x * self.tile_size, y *
                           self.tile_size, image, game.falls2)
                 else:
-                    Block(x * self.tile_size, y * self.tile_size, image, game.decor)
+                    Block(x * self.tile_size, y *
+                          self.tile_size, image, game.decor)
 
     # отрисовка блоков и создание некоторых анимаций(водопады)
     def draw(self, screen):
         game.background.draw(screen)
         game.blocks.draw(screen)
         game.stairs.draw(screen)
+        game.finish_tile.draw(screen)
 
     def draw_falls(self, screen):
         if self.water:
@@ -182,7 +201,6 @@ class Map():
         self.water = 1 if self.water == 0 else 0
 
     def get_tile_id(self, position, layer):
-        print(position, layer)
         return self.map.tiledgidmap[self.map.get_tile_gid(*position, layer)]
 
     def is_free(self, position, layer):
@@ -238,14 +256,17 @@ class Creature(pygame.sprite.Sprite):
         self.group = group
         self.frames = []
         self.cur_frame = 0
+        self.frame_dict = {'Idle': 4, 'run': 10, 'attack': 17, 'death': 12, 'hit' : 4}
         self.vector = 1
         self.vector_y = 1
         self.jumping = False
         self.jumping_frame = 0
+        self.name = 'Hobbit'
+        
 
         self.falling = False
         #self.jumping_frames = [40 - (8 * i**2) / 2 for i in range(1, 8)]
-        self.jumping_frames = [-8, -8, -8, -8, -8, -8, -8, -8, 8, 8, 8, 8, 8, 8, 8, 8]
+        self.jumping_frames = [-8, -8, -8, -8, -8, -8, -8, -8]
 
         self.stay()
         self.image = self.frames[self.cur_frame]
@@ -273,7 +294,7 @@ class Creature(pygame.sprite.Sprite):
         if self.jumping:
             self.rect.y += self.jumping_frames[self.jumping_frame]
             self.jumping_frame += 1
-            if self.jumping_frame >= 16:
+            if self.jumping_frame >= 8:
                 self.jumping = False
                 self.jumping_frame = 0
 
@@ -310,17 +331,20 @@ class Creature(pygame.sprite.Sprite):
         if self.cur_func == 2:
             group = game.left_walls if self.vector == 1 else game.right_walls
             if not pygame.sprite.spritecollideany(self, group):
-                self.rect.x += 10 * self.vector 
+                self.rect.x += 10 * self.vector if not self.jumping and not self.falling else 5 * self.vector
             else:
                 self.stay()
 
+        self.check_finish()
+        self.check_death()
+
     def stay(self):
         self.cur_func = 1
-        self.cut_sheet(load_char('Hobbit - Idle', 4))
+        self.cut_sheet(load_char(f'{self.name} - Idle', self.frame_dict['Idle']))
 
     def run(self):
         self.cur_func = 2
-        self.cut_sheet(load_char('Hobbit - run', 10))
+        self.cut_sheet(load_char(f'{self.name} - run', self.frame_dict['run']))
 
     def fall(self):
         self.falling = True
@@ -332,7 +356,7 @@ class Creature(pygame.sprite.Sprite):
     def attack(self, attack=0):
         self.cur_func = 5
         if attack == 0:
-            self.cut_sheet(load_char('Hobbit - attack', 17))
+            self.cut_sheet(load_char(f'{self.name} - attack', self.frame_dict['attack']))
 
     def claimbing(self, flag=1):
         self.cur_func = 6
@@ -343,17 +367,30 @@ class Creature(pygame.sprite.Sprite):
         if self.group == game.heroes:
             game.interface.change_hp(-damage)
 
-        print(self.health)
         self.cur_func = 7
-        self.cut_sheet(load_char('Hobbit - hit', 4))
+        self.cut_sheet(load_char(f'{self.name} - hit', self.frame_dict['hit']))
 
     def death(self):
         self.cur_func = 8
-        self.cut_sheet(load_char('Hobbit - death', 12))
+        self.cut_sheet(load_char(f'{self.name} - death', self.frame_dict['death']))
 
     def check_stay(self):
         return pygame.sprite.spritecollideany(self, game.floors)
 
+    def check_death(self):
+        if self.rect.y >= 480:
+            game.menu.death()
+
+    def check_finish(self):
+        if pygame.sprite.spritecollideany(self, game.finish_tile):
+            game.menu.finish()
+
+class Enemy(Creature):
+    def find_hero(self):
+        for i in range(self.rect.x - 4 * 32, self.rect.x):
+            if game.hero.rect.collidepoint(i, self.rect.y + 16):
+                self.vector = -1
+                self.run()
 
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, coords, vector, group):
@@ -372,7 +409,7 @@ class Bullet(pygame.sprite.Sprite):
         self.rect.x += self.vector * 15
         self.cur_distance += 15
         char = pygame.sprite.spritecollideany(self, self.group)
-        
+
         if self.cur_distance // 32 > 8 or pygame.sprite.spritecollideany(self, game.blocks):
             game.balls.remove(self)
         if char:
@@ -385,6 +422,7 @@ class Interface(pygame.sprite.Sprite):
         self.max_hp = char.max_hp
         self.cur_hp = char.max_hp
         self.hearts = [Health(2, i) for i in range(self.max_hp // 2)]
+        self.buttons = pygame.sprite.Group([Button(884, 10, game.menu.pause, 'pause_mini', 1), Button(926, 10, game.menu.restart, 'restart_mini', 1)])
 
     def change_hp(self, change):
         self.cur_hp += change
@@ -392,6 +430,7 @@ class Interface(pygame.sprite.Sprite):
         for i in self.hearts:
             if self.cur_hp - count >= 2:
                 i.change(2)
+
                 count += 2
             elif self.cur_hp - count >= 1:
                 i.change(1)
@@ -426,14 +465,14 @@ class Health(pygame.sprite.Sprite):
 
 
 class Button(pygame.sprite.Sprite):
-    def __init__(self, x, y, func, name):
+    def __init__(self, x, y, func, name, koeff=2.5):
         super().__init__(game.buttons)
-        global menu
         self.func = func
-        self.image1 = pygame.transform.scale(
-            load_image('data/buttons/menug', name), (150, 75))
-        self.image2 = pygame.transform.scale(load_image(
-            'data/buttons/menug', name + '_pressed'), (150, 75))
+        img1 = load_image('data/buttons/menug', name)
+        img2 = load_image('data/buttons/menug', name + '_pressed')
+        self.w, self.h = img1.get_width(), img1.get_height()
+        self.image1 = pygame.transform.scale(img1, (self.w * koeff, self.h * koeff))
+        self.image2 = pygame.transform.scale(img2, (self.w * koeff, self.h * koeff))
         self.rect = self.image1.get_rect()
         self.rect.x = x
         self.rect.y = y
@@ -450,19 +489,27 @@ class Button(pygame.sprite.Sprite):
 class Camera:
     def __init__(self):
         self.dx = 0
+        self.change = 0
 
     def apply(self, obj):
-        obj.rect.x += self.dx
+        if self.change + self.dx > -3064510:
+
+            obj.rect.x += self.dx
+            self.change += self.dx
 
     def update(self, target):
         self.dx = -(target.rect.x + target.rect.w // 2 - 32 // 2) + 200
 
 
-
 class Game():
     def __init__(self):
-        self.maps = [('second.tmx', (32 * 13, 7 * 32)), ]
-        self.map = Map(*self.maps[0])
+        self.maps = [('second.tmx', (32 * 13, 7 * 32), (66, 14)), ('third.tmx', (32 * 12, 0), (66, 14))]
+        pygame.mixer.music.load('data/music/CaveStory.mp3')
+        pygame.mixer.music.set_volume(0.03)
+        pygame.mixer.music.play()
+        self.cur_map = 0
+        self.start = True
+
 
     def setup(self):
         self.all_sprites = pygame.sprite.Group()
@@ -478,6 +525,7 @@ class Game():
         self.floors = pygame.sprite.Group()
         self.decor = pygame.sprite.Group()
         self.stairs = pygame.sprite.Group()
+        self.finish_tile = pygame.sprite.Group()
 
         # falls
         self.falls1 = pygame.sprite.Group()
@@ -494,17 +542,23 @@ class Game():
         self.pause = pygame.USEREVENT + 2
         self.options = pygame.USEREVENT + 3
 
+        self.map = Map(*self.maps[self.cur_map])
+
         self.running = True
         self.clock = pygame.time.Clock()
 
         self.hero = Creature(self.map.start_pos, self.heroes)
         self.enemy = Creature((11 * 32, 7 * 32), self.enemies)
         self.camera = Camera()
+
         self.menu = Menu()
-        self.menu.run()
+        if self.start:
+            self.menu.run()
+
         self.interface = Interface(self.hero)
         self.map.render()
-    
+        self.start = False
+
     def run(self):
         while self.running:
             screen.fill('#000000')
@@ -525,12 +579,24 @@ class Game():
                         self.hero.claimbing(-1)
                     if event.key == pygame.K_s:
                         self.hero.claimbing(1)
-                    if event.key == pygame.K_SPACE or pygame.K_SPACE  and pygame.key.get_mods() and pygame.K_d | pygame.K_a:
+                    if event.key == pygame.K_SPACE or pygame.K_SPACE and pygame.key.get_mods() and pygame.K_d | pygame.K_a:
                         self.hero.jump()
                     if event.key == pygame.K_ESCAPE:
                         self.menu.pause()
+
+                    
+
                 if (event.type == pygame.KEYUP and not self.hero.cur_func in [4, 5, 8]):
                     self.hero.stay()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    for i in game.interface.buttons:
+                        btn = i.rect.collidepoint(*event.pos)
+                        if btn:
+                            i.func()
+
+                if event.type == pygame.MOUSEMOTION:
+                    for i in game.interface.buttons:
+                        i.hover(event.pos)
 
             self.camera.update(self.hero)
             for sprite in self.all_sprites:
@@ -547,15 +613,17 @@ class Game():
             self.enemies.draw(screen)
             self.heroes.draw(screen)
             self.map.draw_falls(screen)
+            if not pygame.mixer.music.get_busy():
+                pygame.mixer.music.play()
 
+            self.interface.buttons.draw(screen)
             self.hearts.draw(screen)
-            self.clock.tick(20)
+            self.clock.tick(15)
             pygame.display.flip()
         pygame.quit()
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     game = Game()
     game.setup()
     game.run()
-
