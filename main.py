@@ -27,8 +27,8 @@ class Menu(pygame.sprite.Sprite):
             380, 200, self.options, 'options'), Button(380, 320, self.exit, 'exit')])
         self.buttons[1].add([Button(380, 80, self.restart, 'restart'), Button(
             380, 200, self.options, 'options'), Button(380, 320, self.exit, 'exit')])
-        self.buttons[2].add([Button(380, 80, self.restart, 'restart'), Button(380, 170, self.next, 'next'), Button(
-            380, 260, self.options, 'options'), Button(380, 350, self.exit, 'exit')])
+        self.buttons[2].add([Button(465, 80, self.restart, 'restart_mini'), Button(375, 80, self.next, 'next'), Button(
+            380, 170, self.options, 'options'), Button(380, 260, self.exit, 'exit')])
         self.render()
 
     def render(self):
