@@ -444,7 +444,7 @@ class Health(pygame.sprite.Sprite):
         super().__init__(game.hearts)
         self.hp = hp
         self.frames = load_image(
-            'data/hearts/animated/border', 'heart_animated_2')
+            f'{CUR_DIR}/data/hearts/animated/border', 'heart_animated_2')
         self.frames = [pygame.transform.scale(self.frames.subsurface(pygame.Rect(
             i, 0, 17, 17)), (32, 32)) for i in range(0, self.frames.get_width(), self.frames.get_width() // 5)]
         self.hp1 = self.frames[2]
@@ -504,7 +504,7 @@ class Camera:
 class Game():
     def __init__(self):
         self.maps = [('second.tmx', (32 * 13, 7 * 32), (66, 14)), ('third.tmx', (32 * 12, 0), (66, 14))]
-        pygame.mixer.music.load('data/music/CaveStory.mp3')
+        pygame.mixer.music.load(f'{CUR_DIR}/data/music/CaveStory.mp3')
         pygame.mixer.music.set_volume(0.03)
         pygame.mixer.music.play()
         self.cur_map = 0
