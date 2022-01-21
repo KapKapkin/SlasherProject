@@ -7,6 +7,7 @@ import sys
 
 MAPS_DIR = 'data/maps'
 HERO_DIR = 'data/hobbit'
+CUR_DIR = os.getcwd()
 FPS = 60
 SIZE = WIDTH, HEIGHT = 960, 480
 
@@ -14,12 +15,11 @@ pygame.init()
 pygame.display.set_caption('CaveFighter')
 screen = pygame.display.set_mode(SIZE)
 
-
 class Menu(pygame.sprite.Sprite):
     def __init__(self):
         # 960 480
         self.cur_frame = 0
-        self.background = pytmx.load_pygame('data/maps/new.tmx')
+        self.background = pytmx.load_pygame(f'{CUR_DIR}/data/maps/new.tmx')
         self.tiles = pygame.sprite.Group()
         self.buttons = [pygame.sprite.Group(), pygame.sprite.Group(),
                         pygame.sprite.Group()]
@@ -122,7 +122,7 @@ def find_borders(list):
 
 
 def load_char(name: str, frames, char='hobbit'):
-    lst = [load_image(f'data/{char}', name + str(i))
+    lst = [load_image(f'{CUR_DIR}/data/{char}', name + str(i))
            for i in range(1, frames + 1)]
     x, y, w, h = find_borders(lst)
     if not name.startswith('bullet'):
@@ -139,7 +139,7 @@ def load_char(name: str, frames, char='hobbit'):
 class Map():
     def __init__(self, filename, start_pos, finish_tile=0):
         # загрузка tmx файла
-        self.map = pytmx.load_pygame(f'{MAPS_DIR}/{filename}')
+        self.map = pytmx.load_pygame(f'{CUR_DIR}/{MAPS_DIR}/{filename}')
         self.height = self.map.height
         self.width = self.map.width
         self.tile_size = 32
