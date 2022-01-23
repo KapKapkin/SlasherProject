@@ -1,5 +1,5 @@
-import re
-from tokenize import group
+
+import csv
 import pygame
 import pytmx
 import os
@@ -15,6 +15,7 @@ pygame.init()
 pygame.display.set_caption('CaveFighter')
 screen = pygame.display.set_mode(SIZE)
 
+
 class Menu(pygame.sprite.Sprite):
     def __init__(self):
         # 960 480
@@ -22,13 +23,24 @@ class Menu(pygame.sprite.Sprite):
         self.background = pytmx.load_pygame(f'{CUR_DIR}/data/maps/new.tmx')
         self.tiles = pygame.sprite.Group()
         self.buttons = [pygame.sprite.Group(), pygame.sprite.Group(),
-                        pygame.sprite.Group()]
+                        pygame.sprite.Group(), pygame.sprite.Group()]
         self.buttons[0].add([Button(380, 80, self.play, 'play'), Button(
             380, 200, self.options, 'options'), Button(380, 320, self.exit, 'exit')])
-        self.buttons[1].add([Button(380, 80, self.restart, 'restart'), Button(
+
+        self.buttons[1].add([Button(465, 80, self.restart, 'restart_mini'), Button(375, 80, self.play, 'play_mini'), Button(
             380, 200, self.options, 'options'), Button(380, 320, self.exit, 'exit')])
+
         self.buttons[2].add([Button(465, 80, self.restart, 'restart_mini'), Button(375, 80, self.next, 'next'), Button(
             380, 170, self.options, 'options'), Button(380, 260, self.exit, 'exit')])
+
+        self.buttons[3].add([Button(280, 80, game.minus_color, '65'), Button(580, 80, game.plus_color, '64'),
+                             Button(280, 180, game.plus_hard, '65'), Button(
+                                 580, 180, game.minus_hard, '64'),
+                             Button(280, 280, game.plus_lvl, '65'), Button(580, 280, game.minus_lvl, '64')])
+
+        game.sliders.add([Slider(320, 80, None, 4), Slider(
+            320, 180, None, 4), Slider(360, 280, None, 3)])
+        self.sliders = game.sliders.sprites()
         self.render()
 
     def render(self):
@@ -41,9 +53,11 @@ class Menu(pygame.sprite.Sprite):
         self.running = True
         while self.running:
             for event in pygame.event.get():
+
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     quit()
+
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     for i in self.buttons[self.cur_frame]:
                         btn = i.rect.collidepoint(*event.pos)
@@ -52,10 +66,19 @@ class Menu(pygame.sprite.Sprite):
                 if event.type == pygame.MOUSEMOTION:
                     for i in self.buttons[self.cur_frame]:
                         i.hover(event.pos)
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.running = False
 
             screen.fill('black')
             self.tiles.draw(screen)
+            self.buttons[self.cur_frame].update()
             self.buttons[self.cur_frame].draw(screen)
+            self.sliders[0].update(game.theme_lst.index(game.color))
+            self.sliders[1].update(game.hard_level)
+            self.sliders[2].update(game.cur_map)
+            if self.cur_frame == 3:
+                game.sliders.draw(screen)
             pygame.display.update()
             game.clock.tick(15)
 
@@ -256,13 +279,13 @@ class Creature(pygame.sprite.Sprite):
         self.group = group
         self.frames = []
         self.cur_frame = 0
-        self.frame_dict = {'Idle': 4, 'run': 10, 'attack': 17, 'death': 12, 'hit' : 4}
+        self.frame_dict = {'Idle': 4, 'run': 10,
+                           'attack': 17, 'death': 12, 'hit': 4}
         self.vector = 1
         self.vector_y = 1
         self.jumping = False
         self.jumping_frame = 0
         self.name = 'Hobbit'
-        
 
         self.falling = False
         #self.jumping_frames = [40 - (8 * i**2) / 2 for i in range(1, 8)]
@@ -340,7 +363,8 @@ class Creature(pygame.sprite.Sprite):
 
     def stay(self):
         self.cur_func = 1
-        self.cut_sheet(load_char(f'{self.name} - Idle', self.frame_dict['Idle']))
+        self.cut_sheet(
+            load_char(f'{self.name} - Idle', self.frame_dict['Idle']))
 
     def run(self):
         self.cur_func = 2
@@ -356,7 +380,8 @@ class Creature(pygame.sprite.Sprite):
     def attack(self, attack=0):
         self.cur_func = 5
         if attack == 0:
-            self.cut_sheet(load_char(f'{self.name} - attack', self.frame_dict['attack']))
+            self.cut_sheet(
+                load_char(f'{self.name} - attack', self.frame_dict['attack']))
 
     def claimbing(self, flag=1):
         self.cur_func = 6
@@ -372,7 +397,8 @@ class Creature(pygame.sprite.Sprite):
 
     def death(self):
         self.cur_func = 8
-        self.cut_sheet(load_char(f'{self.name} - death', self.frame_dict['death']))
+        self.cut_sheet(
+            load_char(f'{self.name} - death', self.frame_dict['death']))
 
     def check_stay(self):
         return pygame.sprite.spritecollideany(self, game.floors)
@@ -385,12 +411,14 @@ class Creature(pygame.sprite.Sprite):
         if pygame.sprite.spritecollideany(self, game.finish_tile):
             game.menu.finish()
 
+
 class Enemy(Creature):
     def find_hero(self):
         for i in range(self.rect.x - 4 * 32, self.rect.x):
             if game.hero.rect.collidepoint(i, self.rect.y + 16):
                 self.vector = -1
                 self.run()
+
 
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, coords, vector, group):
@@ -413,7 +441,7 @@ class Bullet(pygame.sprite.Sprite):
         if self.cur_distance // 32 > 8 or pygame.sprite.spritecollideany(self, game.blocks):
             game.balls.remove(self)
         if char:
-            char.hit(11)
+            char.hit(1)
             game.balls.remove(self)
 
 
@@ -422,7 +450,8 @@ class Interface(pygame.sprite.Sprite):
         self.max_hp = char.max_hp
         self.cur_hp = char.max_hp
         self.hearts = [Health(2, i) for i in range(self.max_hp // 2)]
-        self.buttons = pygame.sprite.Group([Button(884, 10, game.menu.pause, 'pause_mini', 1), Button(926, 10, game.menu.restart, 'restart_mini', 1)])
+        self.buttons = pygame.sprite.Group([Button(884, 10, game.menu.pause, 'pause_mini', 1), Button(
+            926, 10, game.menu.restart, 'restart_mini', 1)])
 
     def change_hp(self, change):
         self.cur_hp += change
@@ -465,18 +494,33 @@ class Health(pygame.sprite.Sprite):
 
 
 class Button(pygame.sprite.Sprite):
-    def __init__(self, x, y, func, name, koeff=2.5):
+    def __init__(self, x, y, func, name, koeff=2.5) -> None:
         super().__init__(game.buttons)
+        self.koeff = koeff
+        self.name = name
         self.func = func
-        img1 = load_image('data/buttons/menug', name)
-        img2 = load_image('data/buttons/menug', name + '_pressed')
+        img1 = load_image(f'{CUR_DIR}/data/buttons/menu' + game.color, name)
+        img2 = load_image(f'{CUR_DIR}/data/buttons/menu' +
+                          game.color, name + '_pressed')
         self.w, self.h = img1.get_width(), img1.get_height()
-        self.image1 = pygame.transform.scale(img1, (self.w * koeff, self.h * koeff))
-        self.image2 = pygame.transform.scale(img2, (self.w * koeff, self.h * koeff))
+        self.image1 = pygame.transform.scale(
+            img1, (self.w * koeff, self.h * koeff))
+        self.image2 = pygame.transform.scale(
+            img2, (self.w * koeff, self.h * koeff))
         self.rect = self.image1.get_rect()
         self.rect.x = x
         self.rect.y = y
         self.hover((0, 0))
+
+    def update_color(self):
+        img1 = load_image(
+            f'{CUR_DIR}/data/buttons/menu' + game.color, self.name)
+        img2 = load_image(f'{CUR_DIR}/data/buttons/menu' +
+                          game.color, self.name + '_pressed')
+        self.image1 = pygame.transform.scale(
+            img1, (self.w * self.koeff, self.h * self.koeff))
+        self.image2 = pygame.transform.scale(
+            img2, (self.w * self.koeff, self.h * self.koeff))
 
     def hover(self, pos):
         if self.rect.collidepoint(*pos):
@@ -484,6 +528,47 @@ class Button(pygame.sprite.Sprite):
             return True
         self.image = self.image1
         return False
+
+
+class Slider(pygame.sprite.Sprite):
+    def __init__(self, x, y, func, len) -> None:
+        super().__init__(game.sliders)
+        self.len = len
+        self.coords = x, y
+        self.func = func
+        self.render()
+
+    def render(self):
+        self.left_border = pygame.transform.scale(load_image(
+            f'{CUR_DIR}/data/buttons/menu' + game.color, '47'), (80, 80))
+        self.centaral = pygame.transform.scale(load_image(
+            f'{CUR_DIR}/data/buttons/menu' + game.color, '48'), (80, 80))
+        self.right_border = pygame.transform.scale(load_image(
+            f'{CUR_DIR}/data/buttons/menu' + game.color, '49'), (80, 80))
+
+        self.centaral_empty = pygame.transform.scale(load_image(
+            f'{CUR_DIR}/data/buttons/menu' + game.color, '54'), (80, 80))
+        self.right_border_empty = pygame.transform.scale(load_image(
+            f'{CUR_DIR}/data/buttons/menu' + game.color, '55'), (80, 80))
+
+    def update(self, n):
+        self.n = n
+        self.image = pygame.Surface((80 * self.len, 80), pygame.SRCALPHA)
+        self.image.blit(self.left_border, (0, 0))
+        count = 0
+        for i in range(self.len - 2):
+            if count + 1 > n:
+                self.image.blit(self.centaral_empty, ((i + 1) * 80 - 15, 0))
+            else:
+                self.image.blit(self.centaral, ((i + 1) * 80 - 15, 0))
+                count += 1
+        if count + 1 > n:
+            self.image.blit(self.right_border_empty,
+                            ((self.len - 1) * 80 - 30, 0))
+        else:
+            self.image.blit(self.right_border, ((self.len - 1) * 80 - 30, 0))
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = self.coords
 
 
 class Camera:
@@ -503,13 +588,32 @@ class Camera:
 
 class Game():
     def __init__(self):
-        self.maps = [('second.tmx', (32 * 13, 7 * 32), (66, 14)), ('third.tmx', (32 * 12, 0), (66, 14))]
+        self.maps = [('second.tmx', (32 * 13, 7 * 32), (66, 14)),
+                     ('third.tmx', (32 * 12, 0), (66, 14))]
         pygame.mixer.music.load(f'{CUR_DIR}/data/music/CaveStory.mp3')
         pygame.mixer.music.set_volume(0.03)
         pygame.mixer.music.play()
+        self.theme_lst = ['b', 'g', 'p', 'r']
+        self.color = 'b'
         self.cur_map = 0
+        self.hard_level = 1
         self.start = True
+        with open(f'{CUR_DIR}/data/data.csv') as csvfile:
+            reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+            for index, row in enumerate(reader):
+                if row:
+                    if row[0] == 'cur-map':
+                        self.cur_map = int(row[1])
+                    if row[0] == 'color':
+                        self.color = row[1]
+                    if row[0] == 'hard-level':
+                        self.hard_level = int(row[1])
 
+    def change_theme(self, n):
+        cur_color = self.theme_lst.index(self.color)
+        n += cur_color
+        n %= 4
+        self.color = self.theme_lst[n]
 
     def setup(self):
         self.all_sprites = pygame.sprite.Group()
@@ -534,6 +638,7 @@ class Game():
         # Interface
         self.hearts = pygame.sprite.Group()
         self.buttons = pygame.sprite.Group()
+        self.sliders = pygame.sprite.Group()
 
         # CONSTS
 
@@ -559,12 +664,77 @@ class Game():
         self.map.render()
         self.start = False
 
+    def plus_color(self):
+        if self.color != 'r':
+            self.color = self.theme_lst[self.theme_lst.index(self.color) + 1]
+            for i in self.buttons:
+                i.update_color()
+            for i in self.sliders:
+                i.render()
+            self.changecsv()
+
+    def minus_color(self):
+        if self.color != 'b':
+            self.color = self.theme_lst[self.theme_lst.index(self.color) - 1]
+            for i in self.buttons:
+                i.update_color()
+            for i in self.sliders:
+                i.render()
+            self.changecsv()
+
+    def plus_hard(self):
+        if self.hard_level > 0:
+            self.hard_level -= 1
+            self.changecsv()
+
+    def minus_hard(self):
+        if self.hard_level < 3:
+            self.hard_level += 1
+            self.changecsv()
+
+    def plus_lvl(self):
+        if self.cur_map > 0:
+            self.cur_map -= 1
+            self.all_sprites.empty()
+            self.setup()
+            self.changecsv()
+            self.run()
+
+    def minus_lvl(self):
+        if self.cur_map < 3:
+            self.cur_map += 1
+            self.all_sprites.empty()
+            self.setup()
+            self.changecsv()
+            self.run()
+
+    def changecsv(self):
+        with open('data/data.csv', 'rt') as input_file:
+            reader = csv.reader(input_file)
+            with open('data/data.temp.csv', 'wt') as output_file:
+                writer = csv.DictWriter(output_file, fieldnames=[
+                                        'parameter', 'value'])
+                for row in reader:
+                    if row:
+                        param, value = row
+                        if param == 'color':
+                            value = self.color
+                        elif param == 'hard-level':
+                            value = self.hard_level
+                        elif param == 'cur-map':
+                            value = self.cur_map
+                        writer.writerow({'parameter': param, 'value': value})
+
+        os.remove('data/data.csv')
+        os.rename('data/data.temp.csv', 'data/data.csv')
+
     def run(self):
         while self.running:
             screen.fill('#000000')
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
+
                 # элементы движения
                 if event.type == pygame.KEYDOWN and self.hero.cur_func != 8:
                     if event.key == pygame.K_d:
@@ -583,9 +753,7 @@ class Game():
                         self.hero.jump()
                     if event.key == pygame.K_ESCAPE:
                         self.menu.pause()
-
-                    
-
+                    self.enemy.attack()
                 if (event.type == pygame.KEYUP and not self.hero.cur_func in [4, 5, 8]):
                     self.hero.stay()
                 if event.type == pygame.MOUSEBUTTONDOWN:
@@ -615,12 +783,12 @@ class Game():
             self.map.draw_falls(screen)
             if not pygame.mixer.music.get_busy():
                 pygame.mixer.music.play()
-
+            self.floors.draw(screen)
+            self.left_walls.draw(screen)
             self.interface.buttons.draw(screen)
             self.hearts.draw(screen)
             self.clock.tick(15)
             pygame.display.flip()
-        pygame.quit()
 
 
 if __name__ == "__main__":
