@@ -179,7 +179,7 @@ class Map():
             for x, y, image in layer.tiles():
                 image = pygame.transform.scale(image, (32, 32))
 
-                if layer.id == 2 and self.get_tile_id((x, y), 1) in [20, 21]:
+                if layer.id == 2 and self.get_tile_id((x, y), 1) in [19, 20, 21]:
                     Block(x * self.tile_size, y *
                           self.tile_size, image, game.stairs)
 
@@ -272,7 +272,7 @@ class Floor(pygame.sprite.Sprite):
 
 
 class Creature(pygame.sprite.Sprite):
-    def __init__(self, coords, group):
+    def __init__(self, coords, group, name='Hobbit'):
         super().__init__(game.all_sprites, group)
         self.health = 10
         self.max_hp = 10
@@ -285,7 +285,7 @@ class Creature(pygame.sprite.Sprite):
         self.vector_y = 1
         self.jumping = False
         self.jumping_frame = 0
-        self.name = 'Hobbit'
+        self.name = name
 
         self.falling = False
         #self.jumping_frames = [40 - (8 * i**2) / 2 for i in range(1, 8)]
@@ -416,8 +416,15 @@ class Enemy(Creature):
     def find_hero(self):
         for i in range(self.rect.x - 4 * 32, self.rect.x):
             if game.hero.rect.collidepoint(i, self.rect.y + 16):
-                self.vector = -1
-                self.run()
+                if self.cur_func != 5:
+                    self.vector = -1
+                    self.attack()
+
+        for i in range(self.rect.x, self.rect.x + 4 * 32):
+            if game.hero.rect.collidepoint(i, self.rect.y + 16):
+                if self.cur_func != 5:
+                    self.vector = 1
+                    self.attack()
 
 
 class Bullet(pygame.sprite.Sprite):
@@ -589,7 +596,8 @@ class Camera:
 class Game():
     def __init__(self):
         self.maps = [('second.tmx', (32 * 13, 7 * 32), (66, 14)),
-                     ('third.tmx', (32 * 12, 0), (66, 14))]
+                     ('third.tmx', (32 * 12, 0), (57, 1)),
+                     ('fourth.tmx', (32 * 13, 13 * 32), (0, 0))]
         pygame.mixer.music.load(f'{CUR_DIR}/data/music/CaveStory.mp3')
         pygame.mixer.music.set_volume(0.03)
         pygame.mixer.music.play()
@@ -653,7 +661,7 @@ class Game():
         self.clock = pygame.time.Clock()
 
         self.hero = Creature(self.map.start_pos, self.heroes)
-        self.enemy = Creature((11 * 32, 7 * 32), self.enemies)
+        self.enemy = Enemy((11 * 32, 7 * 32), self.enemies)
         self.camera = Camera()
 
         self.menu = Menu()
@@ -701,7 +709,7 @@ class Game():
             self.run()
 
     def minus_lvl(self):
-        if self.cur_map < 3:
+        if self.cur_map < 2:
             self.cur_map += 1
             self.all_sprites.empty()
             self.setup()
@@ -753,7 +761,6 @@ class Game():
                         self.hero.jump()
                     if event.key == pygame.K_ESCAPE:
                         self.menu.pause()
-                    self.enemy.attack()
                 if (event.type == pygame.KEYUP and not self.hero.cur_func in [4, 5, 8]):
                     self.hero.stay()
                 if event.type == pygame.MOUSEBUTTONDOWN:
@@ -769,6 +776,8 @@ class Game():
             self.camera.update(self.hero)
             for sprite in self.all_sprites:
                 self.camera.apply(sprite)
+
+            self.enemy.find_hero()
 
             self.map.draw(screen)
             self.decor.draw(screen)
