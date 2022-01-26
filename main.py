@@ -1,9 +1,12 @@
 
 import csv
+from re import S
+from arcade import sprite
 import pygame
 import pytmx
 import os
 import sys
+import random
 
 MAPS_DIR = 'data/maps'
 HERO_DIR = 'data/hobbit'
@@ -118,6 +121,11 @@ class Menu(pygame.sprite.Sprite):
         game.cur_map += 1
         game.setup()
 
+    def endgame(self):
+        self.running = True
+        self.cur_frame = 0
+        game.cur_map = 0
+
 
 def load_image(folder_name, name, colorkey=None) -> pygame.Surface:
     fullname = os.path.join(folder_name, name + '.png')
@@ -136,7 +144,7 @@ def find_borders(list):
         for y in range(i.get_height()):
             for x in range(i.get_width()):
                 r, g, b, a = i.get_at((x, y))
-                if not (r < 20 and g < 20 and b < 20):
+                if a:
                     maxx = x if x > maxx else maxx
                     maxy = y if y > maxy else maxy
                     minx = x if x < minx else minx
@@ -144,17 +152,28 @@ def find_borders(list):
     return minx, miny, maxx - minx + 1, maxy - miny + 1
 
 
-def load_char(name: str, frames, char='hobbit'):
+def load_char(name: str, frames, char='Hobbit'):
     lst = [load_image(f'{CUR_DIR}/data/{char}', name + str(i))
            for i in range(1, frames + 1)]
     x, y, w, h = find_borders(lst)
-    if not name.startswith('bullet'):
+
+    if name.startswith('Knight'):
+        lst = [pygame.transform.scale(i.subsurface(
+            pygame.Rect(x, y, w, h)), (100 * (w / h), 96)) for i in lst]
+    elif not name.startswith('bullet'):
         lst = [pygame.transform.scale(i.subsurface(
             pygame.Rect(x, y, w, h)), (36 * (w / h), 36)) for i in lst]
     else:
         lst = pygame.transform.scale(lst[0].subsurface(
             pygame.Rect(x, y, w, h)), (10 * (w / h), 10))
     return lst
+
+
+def create_particles(position):
+    particle_count = 20
+    numbers = range(-5, 6)
+    for _ in range(particle_count):
+        Particle(position, random.choice(numbers), random.choice(numbers))
 
 # создание класса карты
 
@@ -281,6 +300,7 @@ class Creature(pygame.sprite.Sprite):
         self.cur_frame = 0
         self.frame_dict = {'Idle': 4, 'run': 10,
                            'attack': 17, 'death': 12, 'hit': 4}
+        self.speed = 10
         self.vector = 1
         self.vector_y = 1
         self.jumping = False
@@ -326,7 +346,6 @@ class Creature(pygame.sprite.Sprite):
                 self.group.remove(self)
                 if self.group == game.heroes:
                     game.menu.death()
-                return
 
         if self.cur_func == 7:
             if self.cur_frame - 1 == 0:
@@ -335,7 +354,11 @@ class Creature(pygame.sprite.Sprite):
                 self.death()
 
         if self.cur_func == 5:
-            if self.cur_frame == 16:
+            if self.name == 'Knight':
+                if self.cur_frame == 4:
+                    if pygame.sprite.spritecollideany(self, game.heroes):
+                        game.hero.hit(2 + 1 * game.hard_level)
+            if self.cur_frame == self.frame_dict['attack'] - 1:
                 self.stay()
             if self.cur_frame == 12:
                 Bullet((self.rect.x + 12 + self.vector *
@@ -354,7 +377,8 @@ class Creature(pygame.sprite.Sprite):
         if self.cur_func == 2:
             group = game.left_walls if self.vector == 1 else game.right_walls
             if not pygame.sprite.spritecollideany(self, group):
-                self.rect.x += 10 * self.vector if not self.jumping and not self.falling else 5 * self.vector
+                self.rect.x += self.speed * \
+                    self.vector if not self.jumping and not self.falling else 5 * self.vector
             else:
                 self.stay()
 
@@ -364,11 +388,12 @@ class Creature(pygame.sprite.Sprite):
     def stay(self):
         self.cur_func = 1
         self.cut_sheet(
-            load_char(f'{self.name} - Idle', self.frame_dict['Idle']))
+            load_char(f'{self.name} - Idle', self.frame_dict['Idle'], char=self.name))
 
     def run(self):
         self.cur_func = 2
-        self.cut_sheet(load_char(f'{self.name} - run', self.frame_dict['run']))
+        self.cut_sheet(
+            load_char(f'{self.name} - run', self.frame_dict['run'], char=self.name))
 
     def fall(self):
         self.falling = True
@@ -379,26 +404,30 @@ class Creature(pygame.sprite.Sprite):
 
     def attack(self, attack=0):
         self.cur_func = 5
+
         if attack == 0:
             self.cut_sheet(
-                load_char(f'{self.name} - attack', self.frame_dict['attack']))
+                load_char(f'{self.name} - attack', self.frame_dict['attack'], char=self.name))
 
     def claimbing(self, flag=1):
         self.cur_func = 6
         self.vector_y = flag
 
     def hit(self, damage):
-        self.health -= damage
-        if self.group == game.heroes:
-            game.interface.change_hp(-damage)
+        if self.cur_func != 8:
+            self.health -= damage
+            if self.group == game.heroes:
+                game.interface.change_hp(-damage)
 
-        self.cur_func = 7
-        self.cut_sheet(load_char(f'{self.name} - hit', self.frame_dict['hit']))
+            self.cur_func = 7
+            self.cut_sheet(
+                load_char(f'{self.name} - hit', self.frame_dict['hit'], char=self.name))
 
     def death(self):
-        self.cur_func = 8
-        self.cut_sheet(
-            load_char(f'{self.name} - death', self.frame_dict['death']))
+        if self.cur_func != 8:
+            self.cur_func = 8
+            self.cut_sheet(
+                load_char(f'{self.name} - death', self.frame_dict['death'], char=self.name))
 
     def check_stay(self):
         return pygame.sprite.spritecollideany(self, game.floors)
@@ -414,17 +443,49 @@ class Creature(pygame.sprite.Sprite):
 
 class Enemy(Creature):
     def find_hero(self):
-        for i in range(self.rect.x - 4 * 32, self.rect.x):
-            if game.hero.rect.collidepoint(i, self.rect.y + 16):
-                if self.cur_func != 5:
-                    self.vector = -1
-                    self.attack()
+        for i in range(self.rect.x - 8 * 32, self.rect.x + 8 * 32):
+            if game.hero.rect.collidepoint(i, self.rect.y + 2 / 3 * self.rect.h):
+                if abs(self.rect.x - i) > self.attack_range * 32 and self.cur_func != 2 and self.cur_func != 5:
+                    self.vector = -1 if self.rect.x > i else 1
+                    self.run()
+                    break
+                elif self.cur_func == 1:
+                    self.vector = -1 if self.rect.x > i else 1
+                    if self.cur_func != 5:
+                        self.attack()
+                else:
+                    if self.cur_func != 1 and self.cur_func != 5:
+                        self.stay()
 
-        for i in range(self.rect.x, self.rect.x + 4 * 32):
-            if game.hero.rect.collidepoint(i, self.rect.y + 16):
-                if self.cur_func != 5:
-                    self.vector = 1
-                    self.attack()
+    def death(self):
+        self.cur_func = 8
+        create_particles((self.rect.x + 10, self.rect.y + 30))
+        if self.name == 'Knight':
+            game.menu.endgame()
+        self.kill()
+
+
+class Particle(pygame.sprite.Sprite):
+    fire = [load_image("data/Knight", "star")]
+    for scale in (5, 10, 20):
+        fire.append(pygame.transform.scale(fire[0], (scale, scale)))
+
+    def __init__(self, pos, dx, dy):
+        super().__init__(game.particles)
+        self.image = random.choice(self.fire)
+        self.rect = self.image.get_rect()
+
+        self.velocity = [dx, dy]
+        self.rect.x, self.rect.y = pos
+
+        self.gravity = 1
+
+    def update(self):
+        self.velocity[1] += self.gravity
+        self.rect.x += self.velocity[0]
+        self.rect.y += self.velocity[1]
+        if not self.rect.colliderect(screen.get_rect()):
+            self.kill()
 
 
 class Bullet(pygame.sprite.Sprite):
@@ -448,7 +509,10 @@ class Bullet(pygame.sprite.Sprite):
         if self.cur_distance // 32 > 8 or pygame.sprite.spritecollideany(self, game.blocks):
             game.balls.remove(self)
         if char:
-            char.hit(1)
+            if self.group == game.heroes:
+                char.hit(1 * game.hard_level + 1)
+            else:
+                char.hit(1)
             game.balls.remove(self)
 
 
@@ -606,6 +670,8 @@ class Game():
         self.cur_map = 0
         self.hard_level = 1
         self.start = True
+        self.poses_lst = [[], [(28 * 32, 6 * 32), (48 * 32, 6 * 32), (17 * 32, 9 * 32)], [
+            (41 * 32, 8 * 32), (47 * 32, 8 * 32), (36 * 32, 4 * 32), (52 * 32, 4 * 32)]]
         with open(f'{CUR_DIR}/data/data.csv') as csvfile:
             reader = csv.reader(csvfile, delimiter=',', quotechar='"')
             for index, row in enumerate(reader):
@@ -629,6 +695,7 @@ class Game():
         self.heroes = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
         self.balls = pygame.sprite.Group()
+        self.particles = pygame.sprite.Group()
         # map
         self.blocks = pygame.sprite.Group()
         self.background = pygame.sprite.Group()
@@ -660,8 +727,19 @@ class Game():
         self.running = True
         self.clock = pygame.time.Clock()
 
-        self.hero = Creature(self.map.start_pos, self.heroes)
-        self.enemy = Enemy((11 * 32, 7 * 32), self.enemies)
+        for i in self.poses_lst[self.cur_map]:
+            enemy = Enemy(i, self.enemies, 'DarkHobbit')
+            enemy.attack_range = 4
+            enemy.health = 2
+
+        self.hero = Creature(self.map.start_pos, self.heroes, 'Hobbit')
+
+        if self.cur_map == 2:
+            self.boss = Enemy((47 * 32, 310), self.enemies, 'Knight')
+            self.boss.attack_range = 1
+            self.boss.frame_dict = {'Idle': 4, 'run': 8, 'attack': 7, 'hit': 2}
+            self.boss.speed = 7
+
         self.camera = Camera()
 
         self.menu = Menu()
@@ -777,7 +855,8 @@ class Game():
             for sprite in self.all_sprites:
                 self.camera.apply(sprite)
 
-            self.enemy.find_hero()
+            for i in self.enemies:
+                i.find_hero()
 
             self.map.draw(screen)
             self.decor.draw(screen)
@@ -792,11 +871,14 @@ class Game():
             self.map.draw_falls(screen)
             if not pygame.mixer.music.get_busy():
                 pygame.mixer.music.play()
-            self.floors.draw(screen)
-            self.left_walls.draw(screen)
+
+            self.particles.update()
+            self.particles.draw(screen)
+
             self.interface.buttons.draw(screen)
             self.hearts.draw(screen)
-            self.clock.tick(15)
+
+            self.clock.tick(16)
             pygame.display.flip()
 
 
