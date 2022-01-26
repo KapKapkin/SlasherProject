@@ -122,6 +122,7 @@ class Menu(pygame.sprite.Sprite):
         self.running = True
         self.cur_frame = 0
         game.cur_map = 0
+        self.run()
 
 
 def load_image(folder_name, name, colorkey=None) -> pygame.Surface:
