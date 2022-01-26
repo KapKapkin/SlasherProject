@@ -1,7 +1,4 @@
-
 import csv
-from re import S
-from arcade import sprite
 import pygame
 import pytmx
 import os
@@ -670,7 +667,7 @@ class Game():
         self.cur_map = 0
         self.hard_level = 1
         self.start = True
-        self.poses_lst = [[], [(28 * 32, 6 * 32), (48 * 32, 6 * 32), (17 * 32, 9 * 32)], [
+        self.poses_lst = [[(27 * 32, 9 * 32), (38 * 32, 4 * 32)], [(28 * 32, 6 * 32), (48 * 32, 6 * 32), (17 * 32, 9 * 32)], [
             (41 * 32, 8 * 32), (47 * 32, 8 * 32), (36 * 32, 4 * 32), (52 * 32, 4 * 32)]]
         with open(f'{CUR_DIR}/data/data.csv') as csvfile:
             reader = csv.reader(csvfile, delimiter=',', quotechar='"')
