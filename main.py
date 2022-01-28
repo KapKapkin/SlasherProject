@@ -133,7 +133,7 @@ class Menu(pygame.sprite.Sprite):
 
 
 def load_image(folder_name, name, colorkey=None) -> pygame.Surface:
-    fullname = os.path.join(CUR_DIR +'/anoutherslasher/'+ folder_name, name + '.png')
+    fullname = os.path.join(folder_name, name + '.png')
     if not os.path.isfile(fullname):
         print(f"Файл с изображением '{fullname}' не найден")
         sys.exit()
@@ -435,7 +435,6 @@ class Creature(pygame.sprite.Sprite):
             self.cur_func = 7
             self.cut_sheet(
                 load_char(f'{self.name} - hit', self.frame_dict['hit'], char=self.name))
-            print(damage)
 
     def death(self):
         if self.cur_func != 8:
@@ -532,7 +531,7 @@ class Bullet(pygame.sprite.Sprite):
             if self.group == game.heroes:
                 char.hit(1 * game.hard_level + 1)
             else:
-                char.hit(10)
+                char.hit(1)
             game.balls.remove(self)
 
 
@@ -900,7 +899,7 @@ class Game():
             self.interface.buttons.draw(screen)
             self.hearts.draw(screen)
 
-            self.clock.tick(26)
+            self.clock.tick(15)
             pygame.display.flip()
 
 
