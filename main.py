@@ -1,4 +1,5 @@
 import csv
+from time import time
 import pygame
 import pytmx
 import os
@@ -23,7 +24,7 @@ class Menu(pygame.sprite.Sprite):
         self.background = pytmx.load_pygame(f'{CUR_DIR}/data/maps/new.tmx')
         self.tiles = pygame.sprite.Group()
         self.buttons = [pygame.sprite.Group(), pygame.sprite.Group(),
-                        pygame.sprite.Group(), pygame.sprite.Group()]
+                        pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()]
         self.buttons[0].add([Button(380, 80, self.play, 'play'), Button(
             380, 200, self.options, 'options'), Button(380, 320, self.exit, 'exit')])
 
@@ -37,6 +38,9 @@ class Menu(pygame.sprite.Sprite):
                              Button(280, 180, game.plus_hard, '65'), Button(
                                  580, 180, game.minus_hard, '64'),
                              Button(280, 280, game.plus_lvl, '65'), Button(580, 280, game.minus_lvl, '64')])
+        
+        self.buttons[4].add([Button(330, 80, self.restart, 'restart_mini'), Button(500, 80, self.options, 'options')])
+
 
         game.sliders.add([Slider(320, 80, None, 4), Slider(
             320, 180, None, 4), Slider(360, 280, None, 3)])
@@ -79,6 +83,9 @@ class Menu(pygame.sprite.Sprite):
             self.sliders[2].update(game.cur_map)
             if self.cur_frame == 3:
                 game.sliders.draw(screen)
+            if self.cur_frame == 4:
+                img = load_image('data', 'tanos')
+                screen.blit(img, (240, 180))
             pygame.display.update()
             game.clock.tick(15)
 
@@ -120,13 +127,13 @@ class Menu(pygame.sprite.Sprite):
 
     def endgame(self):
         self.running = True
-        self.cur_frame = 0
+        self.cur_frame = 4
         game.cur_map = 0
         self.run()
 
 
 def load_image(folder_name, name, colorkey=None) -> pygame.Surface:
-    fullname = os.path.join(folder_name, name + '.png')
+    fullname = os.path.join(CUR_DIR +'/anoutherslasher/'+ folder_name, name + '.png')
     if not os.path.isfile(fullname):
         print(f"Файл с изображением '{fullname}' не найден")
         sys.exit()
@@ -344,6 +351,14 @@ class Creature(pygame.sprite.Sprite):
                 self.group.remove(self)
                 if self.group == game.heroes:
                     game.menu.death()
+            if self.name == 'Knight':
+                if self.timer:
+                    game.enemies.remove(self)
+                    if time() - self.timer > 3:
+                        game.menu.endgame()
+                        self.kill()
+                        
+                
 
         if self.cur_func == 7:
             if self.cur_frame - 1 == 0:
@@ -420,6 +435,7 @@ class Creature(pygame.sprite.Sprite):
             self.cur_func = 7
             self.cut_sheet(
                 load_char(f'{self.name} - hit', self.frame_dict['hit'], char=self.name))
+            print(damage)
 
     def death(self):
         if self.cur_func != 8:
@@ -431,8 +447,11 @@ class Creature(pygame.sprite.Sprite):
         return pygame.sprite.spritecollideany(self, game.floors)
 
     def check_death(self):
-        if self.rect.y >= 480:
+        if self.rect.y >= 480 and self.name == 'Hobbit':
             game.menu.death()
+        elif self.name in ['Knight', 'DarkHobbit']:
+            if self.health <= 0:
+                self.death()
 
     def check_finish(self):
         if pygame.sprite.spritecollideany(self, game.finish_tile):
@@ -459,8 +478,11 @@ class Enemy(Creature):
         self.cur_func = 8
         create_particles((self.rect.x + 10, self.rect.y + 30))
         if self.name == 'Knight':
-            game.menu.endgame()
-        self.kill()
+            if self.timer == False:
+                self.timer = time()
+        else:
+            self.kill()    
+        
 
 
 class Particle(pygame.sprite.Sprite):
@@ -510,7 +532,7 @@ class Bullet(pygame.sprite.Sprite):
             if self.group == game.heroes:
                 char.hit(1 * game.hard_level + 1)
             else:
-                char.hit(1)
+                char.hit(10)
             game.balls.remove(self)
 
 
@@ -647,7 +669,6 @@ class Camera:
 
     def apply(self, obj):
         if self.change + self.dx > -3064510:
-
             obj.rect.x += self.dx
             self.change += self.dx
 
@@ -734,6 +755,7 @@ class Game():
 
         if self.cur_map == 2:
             self.boss = Enemy((47 * 32, 310), self.enemies, 'Knight')
+            self.boss.timer = False
             self.boss.attack_range = 1
             self.boss.frame_dict = {'Idle': 4, 'run': 8, 'attack': 7, 'hit': 2}
             self.boss.speed = 7
@@ -861,6 +883,8 @@ class Game():
 
             self.heroes.update()
             self.enemies.update()
+            if self.cur_map == 2:
+                self.boss.update()
             self.balls.update()
             self.balls.draw(screen)
 
@@ -876,7 +900,7 @@ class Game():
             self.interface.buttons.draw(screen)
             self.hearts.draw(screen)
 
-            self.clock.tick(16)
+            self.clock.tick(26)
             pygame.display.flip()
 
 
