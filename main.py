@@ -38,9 +38,9 @@ class Menu(pygame.sprite.Sprite):
                              Button(280, 180, game.plus_hard, '65'), Button(
                                  580, 180, game.minus_hard, '64'),
                              Button(280, 280, game.plus_lvl, '65'), Button(580, 280, game.minus_lvl, '64')])
-        
-        self.buttons[4].add([Button(330, 80, self.restart, 'restart_mini'), Button(500, 80, self.options, 'options')])
 
+        self.buttons[4].add([Button(330, 80, self.restart, 'restart_mini'), Button(
+            500, 80, self.options, 'options')])
 
         game.sliders.add([Slider(320, 80, None, 4), Slider(
             320, 180, None, 4), Slider(360, 280, None, 3)])
@@ -357,8 +357,6 @@ class Creature(pygame.sprite.Sprite):
                     if time() - self.timer > 3:
                         game.menu.endgame()
                         self.kill()
-                        
-                
 
         if self.cur_func == 7:
             if self.cur_frame - 1 == 0:
@@ -480,8 +478,7 @@ class Enemy(Creature):
             if self.timer == False:
                 self.timer = time()
         else:
-            self.kill()    
-        
+            self.kill()
 
 
 class Particle(pygame.sprite.Sprite):
@@ -854,7 +851,7 @@ class Game():
                         self.hero.claimbing(-1)
                     if event.key == pygame.K_s:
                         self.hero.claimbing(1)
-                    if event.key == pygame.K_SPACE or pygame.K_SPACE and pygame.key.get_mods() and pygame.K_d | pygame.K_a:
+                    if event.key == pygame.K_SPACE:
                         self.hero.jump()
                     if event.key == pygame.K_ESCAPE:
                         self.menu.pause()
